@@ -1,0 +1,9 @@
+Variable name doesn't follow formatting style: aWrongName (Line 6, Column 0)
+Variable name doesn't follow formatting style: contains_owly_urlBB (Line 8, Column 0)
+Variable name doesn't follow formatting style: tweetAAA (Line 8, Column 0)
+Each line must be less than 80 characters long including spaces. (Line 11, Column 0)
+There should be a blank space before and after every operator (Line 12, Column 12)
+There should be a blank space before and after every operator (Line 15, Column 31)
+Do not import any modules (other than math) (Line 2, Column 0)
+Should have docstring for the functions (Line 8, Column 0)
+Compliation and format checking failed

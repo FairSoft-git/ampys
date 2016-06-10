@@ -1,0 +1,10 @@
+Compliation and format checking passed
+Case Failed: is_valid_tweet('') returns True, excepted: False
+Result: 57/58
+	contains_owly_url: 8/8 passed
+	is_valid_tweet: 4/5 passed
+	add_hashtag: 4/4 passed
+	contains_hashtag: 8/8 passed
+	report_longest: 4/4 passed
+	num_tweets_required: 7/7 passed
+	get_nth_tweet: 22/22 passed
