@@ -1,0 +1,5 @@
+There should be a blank space before and after every operator (Line 139, Column 24)
+There should be a blank space before and after every operator (Line 136, Column 27)
+Do not import any modules (Line 329, Column 4)
+Do not use any output functions (Line 298, Column 4)
+Compliation and format checking failed

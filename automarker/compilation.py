@@ -221,7 +221,7 @@ def FollowFormattingStyle():
         ast.Lt      : '<',
         ast.LtE     : '<=',
         ast.Gt      : '>',
-        ast.GtE     : '>=',
+        ast.GtE     : '>='
     }
 
     def _follorFormattingStyle(source_code, node, description, reporter):
@@ -237,7 +237,7 @@ def FollowFormattingStyle():
 
         for n in ast.walk(node):
             if isinstance(n, ast.Assign):
-                for name in [t.id for t in n.targets]:
+                for name in [t.id for t in n.targets if isinstance(t, ast.Name)]:
                     if not checkName(n, name):
                         passed = False
 
@@ -274,11 +274,13 @@ def FollowFormattingStyle():
                 l = lines[n.lineno - 1]
 
             if isinstance(n, ast.BinOp):
-                checkOp(n, OP_MAP[type(n.op)], l)
+                if type(op) in OP_MAP:
+                    checkOp(n, OP_MAP[type(n.op)], l)
 
             elif isinstance(n, ast.Compare):
                 for op in n.ops:
-                    checkOp(n, OP_MAP[type(op)], l)
+                    if type(op) in OP_MAP:
+                        checkOp(n, OP_MAP[type(op)], l)
 
             elif isinstance(n, ast.Assign):
                 checkOp(n, '=', l)
