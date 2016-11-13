@@ -1,12 +1,16 @@
 import sys
 import imp
+import multiprocessing as mp
+import time
+
 
 class FunctionTestCase(object):
 
-    def __init__(self, checker, description):
+    def __init__(self, checker, description, max_running_time = 1):
         self.checker = checker
         self.description = description
         self.args = []
+        self.max_running_time = max_running_time
 
 
     def when(self, *args):
@@ -20,6 +24,24 @@ class FunctionTestCase(object):
         '''
         self.args = args
         return self
+
+
+    def run(self):
+        q = mp.Queue()
+
+        def workerFunc():
+            q.put(self.checker.target(*self.args))
+
+        worker = mp.Process(target = workerFunc)
+        worker.start()
+
+        try:
+            return q.get(timeout = self.max_running_time)
+        except Exception:
+            while worker.is_alive():
+                worker.terminate()
+
+            raise TimeoutError()
 
 
     def shouldReturnType(self, return_type):
@@ -36,13 +58,19 @@ class FunctionTestCase(object):
                 self.checker.func_name, None, return_type)
             return self.checker
 
-        r = self.checker.target(*self.args)
-        if type(r) != return_type:
-            self.checker.reporter.onFunctionTypeCheckingFail(
-                self.checker.func_name,
-                type(r), return_type)
-        else:
-            self.checker.reporter.onFunctionTestCasePassed(self.checker.func_name)
+        try:
+            r = self.run()
+            if type(r) != return_type:
+                self.checker.reporter.onFunctionTypeCheckingFail(
+                    self.checker.func_name,
+                    type(r), return_type)
+            else:
+                self.checker.reporter.onFunctionTestCasePassed(self.checker.func_name)
+
+        except Exception:
+                self.checker.reporter.onFunctionTestCaseTimeout(
+                    self.checker.func_name,
+                    self.args)
 
         return self.checker
 
@@ -63,15 +91,21 @@ class FunctionTestCase(object):
                 None, value)
             return self.checker
 
-        r = self.checker.target(*self.args)
-        if r != value:
-            self.checker.reporter.onFunctionTestCaseFail(
-                self.checker.func_name,
-                self.args,
-                r, value)
-        else:
-            self.checker.reporter.onFunctionTestCasePassed(self.checker.func_name)
+        try:
+            r = self.run()
+            if r != value:
+                self.checker.reporter.onFunctionTestCaseFail(
+                    self.checker.func_name,
+                    self.args,
+                    r, value)
+            else:
+                self.checker.reporter.onFunctionTestCasePassed(self.checker.func_name)
 
+        except Exception:
+                self.checker.reporter.onFunctionTestCaseTimeout(
+                    self.checker.func_name,
+                    self.args)
+            
         return self.checker
 
 

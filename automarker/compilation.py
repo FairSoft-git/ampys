@@ -101,12 +101,7 @@ def NotUseImports(exceptions = []):
                 if n.module not in exceptions:
                     reporter.onCompilationError(n.lineno, n.col_offset, description)
                     passed = False
-
-            # elif isinstance(n, ast.Call) and isinstance(n.func, ast.Name):
-            #     if n.func.id == '__import__':
-            #         reporter.onCompilationError(n.lineno, n.col_offset, description)
-            #         passed = False
-
+                    
             elif isinstance(n, ast.Name):
                 if n.id == '__import__':
                     reporter.onCompilationError(n.lineno, n.col_offset, description)

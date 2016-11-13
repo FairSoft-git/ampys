@@ -52,6 +52,21 @@ class Reporter(object):
         self.function_cases[func_name] += 1
 
 
+    def onFunctionTestCaseTimeout(self, func_name, args):
+        if func_name not in self.function_cases:
+            self.functions.append(func_name)
+            
+        argStrs = []
+        for a in args:
+            if type(a) == str:
+                argStrs.append("'" + a + "'")
+            else:
+                argStrs.append(str(a))
+
+        self.msg.append('Case Failed: {}({}) timeout'.format(func_name, ', '.join(argStrs)))
+        self.function_cases[func_name] += 1
+
+
     def onFunctionTypeCheckingFail(self, func_name, return_type, excepted_value):
         self.msg.append('Type Checking Failed: {} returns {}, excepted: {}'.format(func_name, return_type, excepted_value))
         self.function_cases[func_name] += 1
