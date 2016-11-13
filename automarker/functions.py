@@ -6,7 +6,7 @@ import time
 
 class FunctionTestCase(object):
 
-    def __init__(self, checker, description, max_running_time = 1):
+    def __init__(self, checker, description, max_running_time = 5):
         self.checker = checker
         self.description = description
         self.args = []
@@ -37,7 +37,7 @@ class FunctionTestCase(object):
 
         try:
             return q.get(timeout = self.max_running_time)
-        except Exception:
+        except mp.Queue.empty:
             while worker.is_alive():
                 worker.terminate()
 
@@ -67,12 +67,40 @@ class FunctionTestCase(object):
             else:
                 self.checker.reporter.onFunctionTestCasePassed(self.checker.func_name)
 
-        except Exception:
+        except TimeoutError:
                 self.checker.reporter.onFunctionTestCaseTimeout(
                     self.checker.func_name,
                     self.args)
 
         return self.checker
+
+
+    def shouldNotReturn(self):
+        '''
+        Set this test case will not return anything.
+        '''
+        if not self.checker.target:
+            self.checker.reporter.onFunctionTypeCheckingFail(
+                self.checker.func_name, None, return_type)
+            return self.checker
+
+        try:
+            r = self.run()
+            if r:
+                self.checker.reporter.onFunctionTestCaseFail(
+                    self.checker.func_name,
+                    self.args,
+                    r, None)
+            else:
+                self.checker.reporter.onFunctionTestCasePassed(self.checker.func_name)
+
+        except TimeoutError:
+                self.checker.reporter.onFunctionTestCaseTimeout(
+                    self.checker.func_name,
+                    self.args)
+
+        return self.checker
+
 
 
     def shouldReturn(self, value):
@@ -125,14 +153,12 @@ class FunctionChecker(object):
         '''
         self.func_name = func_name
         self.reporter = assignment.reporter
-        self.target = self.loadFunc(assignment.source, func_name)
+        self.target = self.loadFunc(assignment, func_name)
 
 
-    def loadFunc(self, filename, func_name):
-        with open(filename) as fin:
-            content = fin.read()
-            module = imp.new_module('assignment')
-            exec(content, module.__dict__)
+    def loadFunc(self, assignment, func_name):
+        module = imp.new_module('assignment')
+        exec(assignment.source_code, module.__dict__)
 
         if hasattr(module, func_name):
             return getattr(module, func_name)

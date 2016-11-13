@@ -16,7 +16,7 @@ class Reporter(object):
         self.msg.append('{} (Line {}, Column {})'.format(msg, lineno, offset))
 
 
-    def onCompliationCheckFinish(self, passed):
+    def onCompilationCheckFinish(self, passed):
         self.compiled = passed
         if passed:
             self.msg.append('Compliation and format checking passed')
@@ -105,19 +105,20 @@ class Reporter(object):
 
 class Assignment(object):
 
-    def __init__(self, source, reporter = None):
+    def __init__(self, source_code, reporter = None):
         '''
         Create a new marker based on source code.
 
         Parameters
         ----------
-        source : string
-            the filename of source code
+        source_code : string
+            source code
         reporter : Reporter or subclass of Reporter
             the reporter used for generating the report of mark
         '''
 
-        self.source = source
+        self.source_code = source_code
+
         if reporter:
             self.reporter = reporter
         else:
@@ -136,54 +137,4 @@ class Assignment(object):
             when verbose = 1, show the details.
         '''
         return self.reporter.report(verbose)
-
-
-class Marker(object):
-
-    def mark(self, source, mark_func, verbose = 1):
-        '''
-        Mark an assignment (source) using mark_func.
-        The result will be printed console.
-
-        Parameters
-        ----------
-        source : string
-            the filename of source code
-        mark_func : function
-            marking function. this function should accept a parameter:
-                assignment (Assignment)
-        verbose : int
-            the verbose level.
-            when verbose = 0, only show the result.
-            when verbose = 1, show the details.
-        '''
-        assignment = Assignment(source)
-        mark_func(assignment)
-        print(assignment.generateReport(verbose))
-
-
-    def batch_mark(self, folder, mark_func, verbose = 1):
-        '''
-        Mark all the assignments inside folder using mark_func.
-        The results will be saved in folder named by "ORIGINAL-report.txt".
-
-        Parameters
-        ----------
-        folder : string
-            the assignment folder
-        mark_func : function
-            marking function. this function should accept a parameter:
-                assignment (Assignment)
-        verbose : int
-            the verbose level.
-            when verbose = 0, only show the result.
-            when verbose = 1, show the details.
-        '''
-        for f in glob.glob(os.path.join(folder, '*.py')):
-            output_name = f.replace('.py', '-report.txt')
-            assignment = Assignment(f)
-            mark_func(assignment)
-            report = assignment.generateReport(verbose)
-            with open(output_name, 'w') as fout:
-                fout.write(report)
 

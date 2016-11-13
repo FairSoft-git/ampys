@@ -47,27 +47,25 @@ class CompilationChecker(object):
             whether the assignemt can pass this checker        
         '''
         passed = True
-        source = self.assignment.source
+        compiled = True
+        content = self.assignment.source_code
         reporter = self.assignment.reporter
 
-        with open(source) as fin:
-            content = fin.read()
+        try:
+            node = ast.parse(content, 'assignment.py')
+        except Exception as e:
+            # compile error
+            reporter.onCompilationError(e.lineno, e.offset, e.msg)
+            compiled = False
 
-            try:
-                node = ast.parse(content, source)
-            except Exception as e:
-                # compile error
-                reporter.onCompilationError(e.lineno, e.offset, e.msg)
-                passed = False
+        if compiled:
+            # check all the requirements
+            for checker, description in self.checkers:
+                if not checker(content, node, description, reporter):
+                    passed = False
 
-            if passed:
-                # check all the requirements
-                for checker, description in self.checkers:
-                    if not checker(content, node, description, reporter):
-                        passed = False
-
-        reporter.onCompliationCheckFinish(passed)
-        return passed
+        reporter.onCompilationCheckFinish(passed)
+        return compiled
 
 
 
@@ -219,17 +217,17 @@ def FollowFormattingStyle():
 
     OP_MAP = {
         # binary operators
-        ast.Add     : '\+',
+        ast.Add     : '+',
         ast.Sub     : '-',
         ast.Mult    : '\*',
         ast.Div     : '/',
         ast.FloorDiv: '//',
         ast.Mod     : '%',
-        ast.Pow     : '\*\*',
+        ast.Pow     : '**',
         ast.LShift  : '<<',
         ast.RShift  : '>>',
-        ast.BitOr   : '\|',
-        ast.BitXor  : '\^',
+        ast.BitOr   : '|',
+        ast.BitXor  : '^',
         ast.BitAnd  : '&',
         # compare operators
         ast.Eq      : '==',
@@ -265,8 +263,9 @@ def FollowFormattingStyle():
                     if not checkName(n, arg.arg):
                         passed = False
 
-        # check tabs
         lines = source_code.split('\n')
+        
+        # check tabs
         for i, l in enumerate(lines):
             if TAB_MATCHER.match(l):
                 reporter.onCompilationError(i+1, 0, 'Do not use tab to indent. Use 4 spaces instead.')
@@ -279,34 +278,33 @@ def FollowFormattingStyle():
                 passed = False
 
         # check space between op
-        errLines = set()
-        def checkOp(n, op, l):
-            m = re.search('\\S' + op, l) or re.search(op + '\\S+', l)
-            if m:
-                errLines.add((n.lineno, m.start() + 1))
+        op_lines = {}
 
         for n in ast.walk(node):
             if hasattr(n, 'lineno'):
-                l = lines[n.lineno - 1]
+                index = n.lineno - 1
+                if index not in op_lines:
+                    op_lines[index] = []
 
             if isinstance(n, ast.BinOp):
-                if type(op) in OP_MAP:
-                    checkOp(n, OP_MAP[type(n.op)], l)
+                if type(n.op) in OP_MAP:
+                    op_lines[index].append(OP_MAP[type(n.op)])
 
             elif isinstance(n, ast.Compare):
                 for op in n.ops:
                     if type(op) in OP_MAP:
-                        checkOp(n, OP_MAP[type(op)], l)
+                        op_lines[index].append(OP_MAP[type(op)])
 
             elif isinstance(n, ast.Assign):
-                checkOp(n, '=', l)
+                op_lines[index].append('=')
 
-        for lineno, col_offset in errLines:
-            reporter.onCompilationError(lineno, col_offset, 
-                'There should be a blank space before and after every operator')
-
-        if len(errLines) > 0:
-            passed = False
+        for line_index, ops in op_lines.items():
+            if len(ops) != 0:
+                regex = r'.*\s' + r'\s.*\s'.join([re.escape(op) for op in ops]) + r'\s.*'
+                if not re.match(regex, lines[line_index]):
+                    reporter.onCompilationError(line_index + 1, 0, 
+                        'There should be a blank space before and after every operator')
+                    passed = False
 
         return passed
 
