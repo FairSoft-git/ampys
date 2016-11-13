@@ -102,6 +102,16 @@ def NotUseImports(exceptions = []):
                     reporter.onCompilationError(n.lineno, n.col_offset, description)
                     passed = False
 
+            # elif isinstance(n, ast.Call) and isinstance(n.func, ast.Name):
+            #     if n.func.id == '__import__':
+            #         reporter.onCompilationError(n.lineno, n.col_offset, description)
+            #         passed = False
+
+            elif isinstance(n, ast.Name):
+                if n.id == '__import__':
+                    reporter.onCompilationError(n.lineno, n.col_offset, description)
+                    passed = False
+
         return passed
 
     return _useImports
@@ -128,15 +138,14 @@ def NotUseFuncs(names):
         passed = True
 
         for n in ast.walk(node):
-            if isinstance(n, ast.Call) and isinstance(n.func, ast.Name):
-                if n.func.id in names:
+            if isinstance(n, ast.Name):
+                if n.id in names:
                     reporter.onCompilationError(n.lineno, n.col_offset, description)
                     passed = False
 
         return passed
 
     return _notUseFuncs
-
 
 
 def NotUsePrint():
@@ -161,6 +170,18 @@ def NotUseInput():
         checker function
     '''
     return NotUseFuncs(['input', 'raw_input'])
+
+
+def NotUseEval():
+    '''
+    Requirement of that the source code shouldn't use eval(), exec() or compile().
+    
+    Returns
+    -------
+    function:
+        checker function
+    '''
+    return NotUseFuncs(['eval', 'exec', 'compile'])
 
 
 def HaveDocstrings():
