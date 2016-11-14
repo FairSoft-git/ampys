@@ -52,21 +52,6 @@ class Reporter(object):
         self.function_cases[func_name] += 1
 
 
-    def onFunctionTestCaseTimeout(self, func_name, args):
-        if func_name not in self.function_cases:
-            self.functions.append(func_name)
-            
-        argStrs = []
-        for a in args:
-            if type(a) == str:
-                argStrs.append("'" + a + "'")
-            else:
-                argStrs.append(str(a))
-
-        self.msg.append('Case Failed: {}({}) timeout'.format(func_name, ', '.join(argStrs)))
-        self.function_cases[func_name] += 1
-
-
     def onFunctionTypeCheckingFail(self, func_name, return_type, excepted_value):
         self.msg.append('Type Checking Failed: {} returns {}, excepted: {}'.format(func_name, return_type, excepted_value))
         self.function_cases[func_name] += 1
@@ -105,7 +90,7 @@ class Reporter(object):
 
 class Assignment(object):
 
-    def __init__(self, source_code, reporter = None):
+    def __init__(self, source_code, dependencies, reporter = None):
         '''
         Create a new marker based on source code.
 
@@ -113,11 +98,14 @@ class Assignment(object):
         ----------
         source_code : string
             source code
+        dependencies : list of modules
+            assignment dependency modules
         reporter : Reporter or subclass of Reporter
             the reporter used for generating the report of mark
         '''
 
         self.source_code = source_code
+        self.dependencies = dependencies
 
         if reporter:
             self.reporter = reporter

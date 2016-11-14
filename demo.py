@@ -1,10 +1,11 @@
 from automarker.compilation import *
 from automarker.functions import FunctionChecker
 from automarker.marker import Assignment
+import string
 
 if __name__ == '__main__':
     with open('assignment.py') as fin:
-        a = Assignment(fin.read())
+        a = Assignment(fin.read(), [string])
 
     compiled = CompilationChecker(a)\
         .should(FollowFormattingStyle(), 'Checking Format')\
@@ -21,5 +22,8 @@ if __name__ == '__main__':
         FunctionChecker(a, 'bar')\
             .newCase('type check').when(1, 2).shouldReturnType(int)\
             .newCase('some test').when(1, 2).shouldReturn(3)
+
+        FunctionChecker(a, 'import_test')\
+            .newCase('type check').when().shouldReturn(string.ascii_uppercase)
 
     print(a.generateReport(1))

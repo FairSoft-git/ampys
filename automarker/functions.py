@@ -27,10 +27,19 @@ class FunctionTestCase(object):
 
 
     def run(self):
+        '''
+        Run this test case. This will return two values:
+        first return value is whether this function returns successfully;
+        second return value is the original return from this function.
+        '''
         q = mp.Queue()
 
         def workerFunc():
-            q.put(self.checker.target(*self.args))
+            try:
+                r = self.checker.target(*self.args)
+                q.put((True, r))
+            except Exception:
+                q.put((False, None))
 
         worker = mp.Process(target = workerFunc)
         worker.start()
@@ -41,7 +50,8 @@ class FunctionTestCase(object):
             while worker.is_alive():
                 worker.terminate()
 
-            raise TimeoutError()
+            return False, None
+
 
 
     def shouldReturnType(self, return_type):
@@ -58,20 +68,15 @@ class FunctionTestCase(object):
                 self.checker.func_name, None, return_type)
             return self.checker
 
-        try:
-            r = self.run()
-            if type(r) != return_type:
-                self.checker.reporter.onFunctionTypeCheckingFail(
-                    self.checker.func_name,
-                    type(r), return_type)
-            else:
-                self.checker.reporter.onFunctionTestCasePassed(self.checker.func_name)
+        success, r = self.run()
 
-        except TimeoutError:
-                self.checker.reporter.onFunctionTestCaseTimeout(
-                    self.checker.func_name,
-                    self.args)
-
+        if success and type(r) == return_type:
+            self.checker.reporter.onFunctionTestCasePassed(self.checker.func_name)
+        else:
+            self.checker.reporter.onFunctionTypeCheckingFail(
+                self.checker.func_name,
+                type(r), return_type)
+        
         return self.checker
 
 
@@ -84,20 +89,14 @@ class FunctionTestCase(object):
                 self.checker.func_name, None, return_type)
             return self.checker
 
-        try:
-            r = self.run()
-            if r:
-                self.checker.reporter.onFunctionTestCaseFail(
-                    self.checker.func_name,
-                    self.args,
-                    r, None)
-            else:
-                self.checker.reporter.onFunctionTestCasePassed(self.checker.func_name)
-
-        except TimeoutError:
-                self.checker.reporter.onFunctionTestCaseTimeout(
-                    self.checker.func_name,
-                    self.args)
+        success, r = self.run()
+        if not success or r:
+            self.checker.reporter.onFunctionTestCaseFail(
+                self.checker.func_name,
+                self.args,
+                r, None)
+        else:
+            self.checker.reporter.onFunctionTestCasePassed(self.checker.func_name)
 
         return self.checker
 
@@ -119,20 +118,14 @@ class FunctionTestCase(object):
                 None, value)
             return self.checker
 
-        try:
-            r = self.run()
-            if r != value:
-                self.checker.reporter.onFunctionTestCaseFail(
-                    self.checker.func_name,
-                    self.args,
-                    r, value)
-            else:
-                self.checker.reporter.onFunctionTestCasePassed(self.checker.func_name)
-
-        except Exception:
-                self.checker.reporter.onFunctionTestCaseTimeout(
-                    self.checker.func_name,
-                    self.args)
+        success, r = self.run()
+        if success and r == value:
+            self.checker.reporter.onFunctionTestCasePassed(self.checker.func_name)
+        else:
+            self.checker.reporter.onFunctionTestCaseFail(
+                self.checker.func_name,
+                self.args,
+                r, value)
             
         return self.checker
 
@@ -158,6 +151,9 @@ class FunctionChecker(object):
 
     def loadFunc(self, assignment, func_name):
         module = imp.new_module('assignment')
+        for dependency in assignment.dependencies:
+            module.__dict__[dependency.__name__] = dependency
+
         exec(assignment.source_code, module.__dict__)
 
         if hasattr(module, func_name):
