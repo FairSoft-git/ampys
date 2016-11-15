@@ -64,8 +64,14 @@ class CompilationChecker(object):
                 if not checker(content, node, description, reporter):
                     passed = False
 
-        reporter.onCompilationCheckFinish(passed)
+        reporter.onCompilationCheckFinish(compiled)
         return compiled
+
+
+
+############################################
+# Rules
+############################################
 
 
 

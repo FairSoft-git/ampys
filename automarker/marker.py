@@ -1,6 +1,12 @@
 from collections import Counter
 import glob
 import os
+import imp
+import os.path
+
+SUCCESS = 0
+WARNING = 1
+ERROR   = 2
 
 class Reporter(object):
 
@@ -13,22 +19,25 @@ class Reporter(object):
 
 
     def onCompilationError(self, lineno, offset, msg):
-        self.msg.append('{} (Line {}, Column {})'.format(msg, lineno, offset))
+        self.msg.append((WARNING, '{} (Line {}, Column {})'.format(msg, lineno, offset)))
 
 
-    def onCompilationCheckFinish(self, passed):
-        self.compiled = passed
-        if passed:
-            self.msg.append('Compliation and format checking passed')
+    def onCompilationCheckFinish(self, compiled):
+        self.compiled = compiled
+        if compiled:
+            self.msg.append((SUCCESS, 'Compliation passed'))
         else:
-            self.msg.append('Compliation and format checking failed')
+            self.msg.append((ERROR, 'Compliation failed'))
 
 
-    def onCannotFindFunctionError(self, func_name):
-        self.msg.append('Cannot find function: {}'.format(func_name))
+    def functionFail(self, func_name):
+        if func_name not in self.function_cases:
+            self.functions.append(func_name)
+
+        self.function_cases[func_name] += 1
 
 
-    def onFunctionTestCasePassed(self, func_name):
+    def functionPass(self, func_name):
         if func_name not in self.function_cases:
             self.functions.append(func_name)
 
@@ -36,61 +45,40 @@ class Reporter(object):
         self.passed_cases[func_name] += 1
 
 
-    def onFunctionTestCaseFail(self, func_name, args, return_value, excepted_value):
-        if func_name not in self.function_cases:
-            self.functions.append(func_name)
-            
-        argStrs = []
-        for a in args:
-            if type(a) == str:
-                argStrs.append("'" + a + "'")
-            else:
-                argStrs.append(str(a))
+    def onCannotFindFunctionError(self, func_name):
+        self.functionFail(func_name)
 
-        self.msg.append('Case Failed: {}({}) returns {}, excepted: {}'.format(func_name, 
-            ', '.join(argStrs), return_value, excepted_value))
-        self.function_cases[func_name] += 1
+
+    def onFunctionTestCasePassed(self, func_name):
+        self.functionPass(func_name)
+
+
+    def onFunctionTestCaseFail(self, func_name, args, return_value, excepted_value):
+        self.functionFail(func_name)
 
 
     def onFunctionTypeCheckingFail(self, func_name, return_type, excepted_value):
-        self.msg.append('Type Checking Failed: {} returns {}, excepted: {}'.format(func_name, return_type, excepted_value))
-        self.function_cases[func_name] += 1
+        self.functionFail(func_name)
 
 
     def report(self, verbose):
-        if verbose == 0:
-            msg = []
-            if self.compiled:
-                msg.append('Compliation and format checking passed')
+        for func_name in self.function_cases.keys():
+            passed = self.passed_cases[func_name]
+            total  = self.function_cases[func_name]
 
-                total = sum([v for k, v in self.function_cases.most_common()])
-                passed = sum([v for k, v in self.passed_cases.most_common()])
-                msg.append('Result: {}/{}'.format(passed, total))
-
-                for func_name in self.functions:
-                    msg.append('\t{}: {}/{} passed'.format(func_name, 
-                        self.passed_cases[func_name], self.function_cases[func_name]))
+            if passed == total:
+                code = SUCCESS
             else:
-                msg.append('Compliation and format checking failed')
+                code = ERROR
 
-        elif verbose == 1:
-            msg = list(self.msg)
-            if self.compiled:
-                total = sum([v for k, v in self.function_cases.most_common()])
-                passed = sum([v for k, v in self.passed_cases.most_common()])
-                msg.append('Result: {}/{}'.format(passed, total))
+            self.msg.append((code, 'Testing {}() : {}/{}'.format(func_name, passed, total)))
 
-                for func_name in self.functions:
-                    msg.append('\t{}: {}/{} passed'.format(func_name, 
-                        self.passed_cases[func_name], self.function_cases[func_name]))
-
-
-        return '\n'.join(msg)
+        return [{'err':c, 'msg':m} for c, m in self.msg]
 
 
 class Assignment(object):
 
-    def __init__(self, source_code, dependencies, reporter = None):
+    def __init__(self, source_code, dependencies = [], reporter = None):
         '''
         Create a new marker based on source code.
 
@@ -126,3 +114,18 @@ class Assignment(object):
         '''
         return self.reporter.report(verbose)
 
+
+def mark(code, script_filename):
+    script_filepath = os.path.join(TEST_SCRIPT_PATH, script_filename)
+
+    with open(script_filepath) as fin:
+        # load testing script
+        script_content = fin.read()
+        module = imp.new_module('test_script')
+        exec(script_content, module.__dict__)
+
+        # get mark function from script file
+        mark_script = getattr(module, 'mark')
+
+        # mark code
+        return mark_script(code)

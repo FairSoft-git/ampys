@@ -37,9 +37,9 @@ class FunctionTestCase(object):
         def workerFunc():
             try:
                 r = self.checker.target(*self.args)
-                q.put((True, r))
+                q.put((True, self.args, r))
             except Exception:
-                q.put((False, None))
+                q.put((False, self.args, None))
 
         worker = mp.Process(target = workerFunc)
         worker.start()
@@ -50,8 +50,7 @@ class FunctionTestCase(object):
             while worker.is_alive():
                 worker.terminate()
 
-            return False, None
-
+            return False, self.args, None
 
 
     def shouldReturnType(self, return_type):
@@ -68,7 +67,7 @@ class FunctionTestCase(object):
                 self.checker.func_name, None, return_type)
             return self.checker
 
-        success, r = self.run()
+        success, post_args, r = self.run()
 
         if success and type(r) == return_type:
             self.checker.reporter.onFunctionTestCasePassed(self.checker.func_name)
@@ -89,7 +88,7 @@ class FunctionTestCase(object):
                 self.checker.func_name, None, return_type)
             return self.checker
 
-        success, r = self.run()
+        success, post_args, r = self.run()
         if not success or r:
             self.checker.reporter.onFunctionTestCaseFail(
                 self.checker.func_name,
@@ -99,7 +98,6 @@ class FunctionTestCase(object):
             self.checker.reporter.onFunctionTestCasePassed(self.checker.func_name)
 
         return self.checker
-
 
 
     def shouldReturn(self, value):
@@ -118,7 +116,7 @@ class FunctionTestCase(object):
                 None, value)
             return self.checker
 
-        success, r = self.run()
+        success, post_args, r = self.run()
         if success and r == value:
             self.checker.reporter.onFunctionTestCasePassed(self.checker.func_name)
         else:
@@ -129,6 +127,40 @@ class FunctionTestCase(object):
             
         return self.checker
 
+
+    def shouldModifyParams(self, *args):
+        '''
+        Set the expected modified parameter values.
+
+        Parameters
+        ----------
+        args: any type
+            the expected modified paremeters
+        '''
+        if not self.checker.target:
+            self.checker.reporter.onFunctionTestCaseFail(
+                self.checker.func_name,
+                self.args,
+                None, value)
+            return self.checker
+
+        success, post_args, r = self.run()
+        
+        passed = True
+        for post_arg, expected_arg in zip(post_args, args):
+            if post_arg != expected_arg:
+                passed = False
+                break
+
+        if success and passed:
+            self.checker.reporter.onFunctionTestCasePassed(self.checker.func_name)
+        else:
+            self.checker.reporter.onFunctionTestCaseFail(
+                self.checker.func_name,
+                self.args,
+                r, args)
+            
+        return self.checker
 
 
 class FunctionChecker(object):
@@ -159,7 +191,7 @@ class FunctionChecker(object):
         if hasattr(module, func_name):
             return getattr(module, func_name)
         else:
-            self.reporter.onCannotFindFunctionError(func_name)
+            # self.reporter.onCannotFindFunctionError(func_name)
             return None
 
 
