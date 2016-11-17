@@ -115,9 +115,7 @@ class Assignment(object):
         return self.reporter.report(verbose)
 
 
-def mark(code, script_filename):
-    script_filepath = os.path.join(TEST_SCRIPT_PATH, script_filename)
-
+def mark(code, script_filepath):
     with open(script_filepath) as fin:
         # load testing script
         script_content = fin.read()
