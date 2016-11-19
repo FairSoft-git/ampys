@@ -49,7 +49,6 @@ class FunctionTestCase(object):
             return q.get(timeout = self.max_running_time)
         except queue.Empty:
             while worker.is_alive():
-                print('terminating')
                 worker.terminate()
 
             return False, self.args, None
