@@ -13,6 +13,7 @@ class Reporter(object):
     def __init__(self):
         self.msg = []
         self.compiled = True
+        self.breakSandbox = False
         self.functions = []
         self.function_cases = Counter()
         self.passed_cases = Counter()
@@ -23,11 +24,16 @@ class Reporter(object):
 
 
     def onCompilationCheckFinish(self, compiled):
-        self.compiled = compiled
-        if compiled:
+        self.compiled = not self.breakSandbox and compiled
+        if self.compiled:
             self.msg.append((SUCCESS, 'Compliation passed'))
         else:
             self.msg.append((ERROR, 'Compliation failed'))
+
+
+    def onBreakSandbox(self, lineno, offset, msg):
+        self.breakSandbox = True
+        self.msg.append((ERROR, '{} (Line {}, Column {})'.format(msg, lineno, offset)))
 
 
     def functionFail(self, func_name):

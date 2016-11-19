@@ -2,11 +2,12 @@ import sys
 import imp
 import multiprocessing as mp
 import time
+import queue
 
 
 class FunctionTestCase(object):
 
-    def __init__(self, checker, description, max_running_time = 5):
+    def __init__(self, checker, description, max_running_time = 1):
         self.checker = checker
         self.description = description
         self.args = []
@@ -46,8 +47,9 @@ class FunctionTestCase(object):
 
         try:
             return q.get(timeout = self.max_running_time)
-        except mp.Queue.empty:
+        except queue.Empty:
             while worker.is_alive():
+                print('terminating')
                 worker.terminate()
 
             return False, self.args, None

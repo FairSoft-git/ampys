@@ -98,17 +98,17 @@ def NotUseImports(exceptions = []):
         for n in ast.walk(node):
             if isinstance(n, ast.Import):
                 if n.names[0].name not in exceptions:
-                    reporter.onCompilationError(n.lineno, n.col_offset, description)
+                    reporter.onBreakSandbox(n.lineno, n.col_offset, description)
                     passed = False
 
             elif isinstance(n, ast.ImportFrom):
                 if n.module not in exceptions:
-                    reporter.onCompilationError(n.lineno, n.col_offset, description)
+                    reporter.onBreakSandbox(n.lineno, n.col_offset, description)
                     passed = False
                     
             elif isinstance(n, ast.Name):
                 if n.id == '__import__':
-                    reporter.onCompilationError(n.lineno, n.col_offset, description)
+                    reporter.onBreakSandbox(n.lineno, n.col_offset, description)
                     passed = False
 
         return passed
@@ -180,7 +180,20 @@ def NotUseEval():
     function:
         checker function
     '''
-    return NotUseFuncs(['eval', 'exec', 'compile'])
+    names = set(['eval', 'exec', 'compile'])
+
+    def _notUseFuncs(source_code, node, description, reporter):
+        passed = True
+
+        for n in ast.walk(node):
+            if isinstance(n, ast.Name):
+                if n.id in names:
+                    reporter.onBreakSandbox(n.lineno, n.col_offset, description)
+                    passed = False
+
+        return passed
+
+    return _notUseFuncs
 
 
 def HaveDocstrings():
