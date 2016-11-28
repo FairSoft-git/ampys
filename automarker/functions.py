@@ -233,7 +233,7 @@ class UnittestResult(unittest.TestResult):
 
 class UnittestChecker(object):
 
-    def __init__(self, assignment, unittest_file, module_name):
+    def __init__(self, assignment, unittest_module, module_name):
         '''
         Create a new function checker based on unittest.
 
@@ -242,14 +242,14 @@ class UnittestChecker(object):
         assignment : Assignment
             the assignment to be checked
 
-        unittest_file: str
-            the name of unittest file
+        unittest_module: module
+            unittest module
 
         module_name: str
             the name of target module using in unittest file
         '''
         self.assignment = assignment
-        self.unittest_file = unittest_file
+        self.unittest_module = unittest_module
         self.module_name = module_name
 
         self.load()
@@ -262,14 +262,10 @@ class UnittestChecker(object):
 
         exec(self.assignment.source_code, module.__dict__)
 
-        ut = imp.new_module('assignment_unittest')
-        ut.__dict__[self.module_name] = module
-
-        with open(self.unittest_file) as fin:
-            exec(fin.read(), ut.__dict__)
+        self.unittest_module.__dict__[self.module_name] = module
 
         self.cases = []
-        for name, obj in inspect.getmembers(ut, inspect.isclass):
+        for name, obj in inspect.getmembers(self.unittest_module, inspect.isclass):
             if issubclass(obj, unittest.TestCase):
                 self.cases.append(obj)
 
