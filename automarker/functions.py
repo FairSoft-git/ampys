@@ -204,6 +204,18 @@ class FunctionChecker(object):
 FIRST_CAP_RE = re.compile('(.)([A-Z][a-z]+)')
 ALL_CAP_RE = re.compile('([a-z0-9])([A-Z])')
 
+def parseFuncName(test):
+    if test.find('.') > 0:
+        _, func_name, _ = test.split('.')
+    else:
+        func_name = test
+
+    if 'Test' == func_name[:4]:
+        func_name = func_name[4:]
+
+    func_name = FIRST_CAP_RE.sub(r'\1_\2', func_name)
+    return ALL_CAP_RE.sub(r'\1_\2', func_name).lower()
+
 
 class UnittestResult(unittest.TestResult):
 
@@ -213,27 +225,19 @@ class UnittestResult(unittest.TestResult):
     
     
     def addFailure(self, test, err):
-        func_name = self.parseFuncName(test)
+        func_name = parseFuncName(test.id())
         self.reporter.functionFail(func_name)
 
 
     def addSuccess(self, test):
-        func_name = self.parseFuncName(test)
+        func_name = parseFuncName(test.id())
         self.reporter.functionPass(func_name)
 
-
-    def parseFuncName(self, test):
-        _, func_name, _ = test.id().split('.')
-        if 'Test' == func_name[:4]:
-            func_name = func_name[4:]
-
-        func_name = FIRST_CAP_RE.sub(r'\1_\2', func_name)
-        return ALL_CAP_RE.sub(r'\1_\2', func_name).lower()
 
 
 class UnittestChecker(object):
 
-    def __init__(self, assignment, unittest_path, module_name):
+    def __init__(self, assignment, unittest_path, module_name, max_running_time = 2):
         '''
         Create a new function checker based on unittest.
 
@@ -251,6 +255,7 @@ class UnittestChecker(object):
         self.assignment = assignment
         self.unittest_path = unittest_path
         self.module_name = module_name
+        self.max_running_time = max_running_time
 
         self.load()
 
@@ -274,7 +279,29 @@ class UnittestChecker(object):
 
 
     def check(self):
-        result = UnittestResult(self.assignment.reporter)
+        ENDLESS_LOOP = -1
+        SUCCESS = 0
+        FAIL = -2
+
+        q = mp.Queue()
+
         for case in self.cases:
-            suite = unittest.defaultTestLoader.loadTestsFromTestCase(case)
-            suite.run(result)
+            func_name = parseFuncName(case.__name__)
+
+            def workerFunc(case, reporter):
+                suite = unittest.defaultTestLoader.loadTestsFromTestCase(case)
+                result = UnittestResult(reporter)
+                suite.run(result)
+                q.put(reporter)
+
+            worker = mp.Process(target = workerFunc, args = (case, self.assignment.reporter))
+            worker.start()
+
+            try:
+                self.assignment.reporter = q.get(timeout = self.max_running_time)
+            except queue.Empty:
+                while worker.is_alive():
+                    worker.terminate()
+
+                self.assignment.reporter.onFunctionTimeout(func_name)
+                

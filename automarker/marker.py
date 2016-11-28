@@ -17,6 +17,7 @@ class Reporter(object):
         self.functions = []
         self.function_cases = Counter()
         self.passed_cases = Counter()
+        self.timeout_funcs = set()
 
 
     def onCompilationError(self, lineno, offset, msg):
@@ -67,7 +68,12 @@ class Reporter(object):
         self.functionFail(func_name)
 
 
-    def report(self, verbose):
+    def onFunctionTimeout(self, func_name):
+        self.functionFail(func_name)
+        self.timeout_funcs.add(func_name)
+
+
+    def report(self, verbose = 0):
         for func_name in self.function_cases.keys():
             passed = self.passed_cases[func_name]
             total  = self.function_cases[func_name]
@@ -78,6 +84,8 @@ class Reporter(object):
                 code = ERROR
 
             self.msg.append((code, 'Testing {}() : {}/{}'.format(func_name, passed, total)))
+            if func_name in self.timeout_funcs:
+                self.msg.append((ERROR, '{}(): Time Limit Exceeded'.format(func_name)))
 
         return [{'err':c, 'msg':m} for c, m in self.msg]
 
