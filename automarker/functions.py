@@ -3,7 +3,9 @@ import imp
 import multiprocessing as mp
 import time
 import queue
-
+import unittest
+import inspect
+import re
 
 class FunctionTestCase(object):
 
@@ -164,6 +166,19 @@ class FunctionTestCase(object):
         return self.checker
 
 
+def loadFunc(assignment, func_name):
+    module = imp.new_module('assignment')
+    for dependency in assignment.dependencies:
+        module.__dict__[dependency.__name__] = dependency
+
+    exec(assignment.source_code, module.__dict__)
+
+    if hasattr(module, func_name):
+        return getattr(module, func_name)
+    else:
+        return None
+
+
 class FunctionChecker(object):
 
     def __init__(self, assignment, func_name):
@@ -179,22 +194,88 @@ class FunctionChecker(object):
         '''
         self.func_name = func_name
         self.reporter = assignment.reporter
-        self.target = self.loadFunc(assignment, func_name)
-
-
-    def loadFunc(self, assignment, func_name):
-        module = imp.new_module('assignment')
-        for dependency in assignment.dependencies:
-            module.__dict__[dependency.__name__] = dependency
-
-        exec(assignment.source_code, module.__dict__)
-
-        if hasattr(module, func_name):
-            return getattr(module, func_name)
-        else:
-            # self.reporter.onCannotFindFunctionError(func_name)
-            return None
+        self.target = loadFunc(assignment, func_name)
 
 
     def newCase(self, description = ''):
         return FunctionTestCase(self, description)
+
+
+FIRST_CAP_RE = re.compile('(.)([A-Z][a-z]+)')
+ALL_CAP_RE = re.compile('([a-z0-9])([A-Z])')
+
+
+class UnittestResult(unittest.TestResult):
+
+    def __init__(self, reporter):
+        unittest.TestResult.__init__(self)
+        self.reporter = reporter
+    
+    
+    def addFailure(self, test, err):
+        func_name = self.parseFuncName(test)
+        self.reporter.functionFail(func_name)
+
+
+    def addSuccess(self, test):
+        func_name = self.parseFuncName(test)
+        self.reporter.functionPass(func_name)
+
+
+    def parseFuncName(self, test):
+        _, func_name, _ = test.id().split('.')
+        if 'Test' == func_name[:4]:
+            func_name = func_name[4:]
+
+        func_name = FIRST_CAP_RE.sub(r'\1_\2', func_name)
+        return ALL_CAP_RE.sub(r'\1_\2', func_name).lower()
+
+
+class UnittestChecker(object):
+
+    def __init__(self, assignment, unittest_file, module_name):
+        '''
+        Create a new function checker based on unittest.
+
+        Parameters
+        ----------
+        assignment : Assignment
+            the assignment to be checked
+
+        unittest_file: str
+            the name of unittest file
+
+        module_name: str
+            the name of target module using in unittest file
+        '''
+        self.assignment = assignment
+        self.unittest_file = unittest_file
+        self.module_name = module_name
+
+        self.load()
+
+
+    def load(self):
+        module = imp.new_module(self.module_name)
+        for dependency in self.assignment.dependencies:
+            module.__dict__[dependency.__name__] = dependency
+
+        exec(self.assignment.source_code, module.__dict__)
+
+        ut = imp.new_module('assignment_unittest')
+        ut.__dict__[self.module_name] = module
+
+        with open(self.unittest_file) as fin:
+            exec(fin.read(), ut.__dict__)
+
+        self.cases = []
+        for name, obj in inspect.getmembers(ut, inspect.isclass):
+            if issubclass(obj, unittest.TestCase):
+                self.cases.append(obj)
+
+
+    def check(self):
+        result = UnittestResult(self.assignment.reporter)
+        for case in self.cases:
+            suite = unittest.defaultTestLoader.loadTestsFromTestCase(case)
+            suite.run(result)
