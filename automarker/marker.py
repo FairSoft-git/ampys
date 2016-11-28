@@ -122,6 +122,7 @@ class Assignment(object):
 
 
 def mark(code, script_filepath):
+    base_dir = os.path.dirname(script_filepath)
     with open(script_filepath) as fin:
         # load testing script
         script_content = fin.read()
@@ -132,4 +133,4 @@ def mark(code, script_filepath):
         mark_script = getattr(module, 'mark')
 
         # mark code
-        return mark_script(code)
+        return mark_script(base_dir, code)
