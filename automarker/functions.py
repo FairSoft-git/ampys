@@ -226,7 +226,11 @@ class UnittestResult(unittest.TestResult):
     
     def addFailure(self, test, err):
         func_name = parseFuncName(test.id())
-        self.reporter.functionFail(func_name)
+        self.reporter.onUnittestFail(func_name, 
+             'Test case failed on {}.{}(): \n{}'.format(
+                test.id().split('.')[1],
+                test.id().split('.')[-1], 
+                self._exc_info_to_string(err, test)))
 
 
     def addSuccess(self, test):

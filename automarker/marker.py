@@ -8,6 +8,8 @@ SUCCESS = 0
 WARNING = 1
 ERROR   = 2
 
+SPLITTER = '-' * 50
+
 class Reporter(object):
 
     def __init__(self):
@@ -18,6 +20,7 @@ class Reporter(object):
         self.function_cases = Counter()
         self.passed_cases = Counter()
         self.timeout_funcs = set()
+        self.fail_cases = []
 
 
     def onCompilationError(self, lineno, offset, msg):
@@ -60,6 +63,11 @@ class Reporter(object):
         self.functionPass(func_name)
 
 
+    def onUnittestFail(self, func_name, description):
+        self.functionFail(func_name)
+        self.fail_cases.append(description)
+
+
     def onFunctionTestCaseFail(self, func_name, args, return_value, excepted_value):
         self.functionFail(func_name)
 
@@ -71,9 +79,11 @@ class Reporter(object):
     def onFunctionTimeout(self, func_name):
         self.functionFail(func_name)
         self.timeout_funcs.add(func_name)
+        self.fail_cases.append('{}() timeout'.format(func_name))
 
 
-    def report(self, verbose = 0):
+    def simpleReport(self):
+        msg = list(self.msg)
         for func_name in self.function_cases.keys():
             passed = self.passed_cases[func_name]
             total  = self.function_cases[func_name]
@@ -83,11 +93,27 @@ class Reporter(object):
             else:
                 code = ERROR
 
-            self.msg.append((code, 'Testing {}() : {}/{}'.format(func_name, passed, total)))
+            msg.append((code, 'Testing {}() : {}/{}'.format(func_name, passed, total)))
             if func_name in self.timeout_funcs:
-                self.msg.append((ERROR, '{}(): Time Limit Exceeded'.format(func_name)))
+                msg.append((ERROR, '{}(): Time Limit Exceeded'.format(func_name)))
 
-        return [{'err':c, 'msg':m} for c, m in self.msg]
+        return [{'err':c, 'msg':m} for c, m in msg]
+
+
+    def report(self, verbose = 0):
+        if verbose == 0:
+            return self.simpleReport()
+        elif verbose == 1:
+            msg = ['DEBUG INFO:', SPLITTER]
+            if not self.compiled:
+                msg.append('Compliation failed')
+
+            msg += self.fail_cases
+            msg.append(SPLITTER)
+            msg.append('OUTPUT MSG:')
+            msg += [l['msg'] for l in self.simpleReport()]
+
+            return msg
 
 
 class Assignment(object):
