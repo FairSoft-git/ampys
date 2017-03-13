@@ -65,7 +65,7 @@ class CompilationChecker(object):
                     passed = False
 
         reporter.onCompilationCheckFinish(compiled)
-        return compiled
+        return not reporter.breakSandbox and compiled
 
 
 

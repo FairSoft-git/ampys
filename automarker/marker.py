@@ -21,6 +21,7 @@ class Reporter(object):
         self.passed_cases = Counter()
         self.timeout_funcs = set()
         self.fail_cases = []
+        self.runtimeError = False
 
 
     def onCompilationError(self, lineno, offset, msg):
@@ -38,6 +39,11 @@ class Reporter(object):
     def onBreakSandbox(self, lineno, offset, msg):
         self.breakSandbox = True
         self.msg.append((ERROR, '{} (Line {}, Column {})'.format(msg, lineno, offset)))
+
+
+    def onRuntimeError(self, err):
+        self.compiled = False
+        self.msg.append((ERROR, '{}'.format(err)))
 
 
     def functionFail(self, func_name):

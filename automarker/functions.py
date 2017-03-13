@@ -238,10 +238,18 @@ class UnittestResult(unittest.TestResult):
         self.reporter.functionPass(func_name)
 
 
+    def addError(self, test, err):
+        func_name = parseFuncName(test.id())
+        self.reporter.onUnittestFail(func_name, 
+             'Test case failed on {}.{}(): \n{}'.format(
+                test.id().split('.')[1],
+                test.id().split('.')[-1], 
+                self._exc_info_to_string(err, test)))
+
 
 class UnittestChecker(object):
 
-    def __init__(self, assignment, unittest_path, module_name, max_running_time = 2):
+    def __init__(self, assignment, unittest_path, module_name = None, max_running_time = 2):
         '''
         Create a new function checker based on unittest.
 
@@ -260,23 +268,40 @@ class UnittestChecker(object):
         self.unittest_path = unittest_path
         self.module_name = module_name
         self.max_running_time = max_running_time
+        self.cases = []
 
         self.load()
 
 
     def load(self):
-        module = imp.new_module(self.module_name)
+        # create assignment module
+        if self.module_name:
+            module = imp.new_module(self.module_name)
+        else:
+            module = imp.new_module('assignment')
+
+        # add dependencies
         for dependency in self.assignment.dependencies:
             module.__dict__[dependency.__name__] = dependency
 
-        exec(self.assignment.source_code, module.__dict__)
+        # execute assignment module
+        try:
+            exec(self.assignment.source_code, module.__dict__)
+        except Exception as err:
+            self.assignment.reporter.onRuntimeError(err)
+            return
 
+        # create unit test module
         ut = imp.new_module('assignment_unittest_module')
-        ut.__dict__[self.module_name] = module
+        if self.module_name:
+            ut.__dict__[self.module_name] = module
+        else:
+            for name, value in inspect.getmembers(module, inspect.isfunction):
+                ut.__dict__[name] = value
+
         with open(self.unittest_path) as fin:
             exec(fin.read(), ut.__dict__)
 
-        self.cases = []
         for name, obj in inspect.getmembers(ut, inspect.isclass):
             if issubclass(obj, unittest.TestCase):
                 self.cases.append(obj)
