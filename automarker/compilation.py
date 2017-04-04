@@ -1,5 +1,6 @@
 import ast
 import re
+import itertools
 
 class CompilationChecker(object):
     '''
@@ -257,6 +258,14 @@ def FollowFormattingStyle():
         ast.GtE     : '>='
     }
 
+    def _checkOps(lines, line_index, ops):
+        for perm_ops in itertools.permutations(ops):
+            regex = r'.*\s' + r'\s.*\s'.join([re.escape(op) for op in perm_ops]) + r'\s.*'
+            if re.match(regex, lines[line_index]):
+                return True
+                
+        return False
+
     def _follorFormattingStyle(source_code, node, description, reporter):
         passed = True
         # check variable names and parameter names
@@ -319,8 +328,7 @@ def FollowFormattingStyle():
 
         for line_index, ops in op_lines.items():
             if len(ops) != 0:
-                regex = r'.*\s' + r'\s.*\s'.join([re.escape(op) for op in ops]) + r'\s.*'
-                if not re.match(regex, lines[line_index]):
+                if not _checkOps(lines, line_index, ops):
                     reporter.onCompilationError(line_index + 1, 0, 
                         'There should be a blank space before and after every operator')
                     passed = False
